@@ -417,6 +417,126 @@
     margin-bottom: 3rem;
 }
 
+.ban-status-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 2.5rem;
+}
+
+.ban-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.ban-status-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.ban-status-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.ban-stat {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.ban-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.ban-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ban-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.ban-chip.ok {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success-color);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.ban-chip.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.ban-blacklist-alert {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: var(--danger-color);
+}
+
+.ban-blacklist-alert p {
+    margin: 0.25rem 0;
+}
+
+.ban-history h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+}
+
+.ban-history ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ban-history li {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    font-size: 0.9rem;
+}
+
+.ban-history li div {
+    margin: 0.15rem 0;
+}
+
+.ban-empty {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
 .stat-card {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);

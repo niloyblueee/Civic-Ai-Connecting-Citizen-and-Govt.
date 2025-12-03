@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [banSummary, setBanSummary] = useState(null);
 
     useEffect(() => {
         // Check if user is already logged in
@@ -28,11 +29,25 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
+    const fetchBanSummary = async () => {
+        try {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/me/ban-summary`);
+            setBanSummary(response.data?.banSummary || null);
+            return response.data?.banSummary || null;
+        } catch (error) {
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                setBanSummary(null);
+            }
+            return null;
+        }
+    };
+
     const checkAuthStatus = async () => {
         try {
             const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/me`);
             setUser(response.data.user);
             setIsAuthenticated(true);
+            await fetchBanSummary();
         } catch (error) {
             console.error('Auth check failed:', error);
             // Only clear auth if it's a 401/403 error, not network issues
@@ -41,6 +56,7 @@ export const AuthProvider = ({ children }) => {
                 delete axios.defaults.headers.common['Authorization'];
                 setUser(null);
                 setIsAuthenticated(false);
+                setBanSummary(null);
             }
         } finally {
             setLoading(false);
@@ -57,8 +73,9 @@ export const AuthProvider = ({ children }) => {
 
             setUser(user);
             setIsAuthenticated(true);
+            const summary = await fetchBanSummary();
             toast.success('Welcome back!');
-            return { success: true, user };
+            return { success: true, user, banSummary: summary };
         } catch (error) {
             const message = error.response?.data?.message || 'Login failed';
             toast.error(message);
@@ -76,8 +93,9 @@ export const AuthProvider = ({ children }) => {
 
             setUser(user);
             setIsAuthenticated(true);
+            const summary = await fetchBanSummary();
             toast.success('Account created successfully!');
-            return { success: true, user };
+            return { success: true, user, banSummary: summary };
         } catch (error) {
             const message = error.response?.data?.message || 'Registration failed';
             toast.error(message);
@@ -95,8 +113,9 @@ export const AuthProvider = ({ children }) => {
 
             setUser(user);
             setIsAuthenticated(true);
+            const summary = await fetchBanSummary();
             toast.success('Welcome!');
-            return { success: true, user };
+            return { success: true, user, banSummary: summary };
         } catch (error) {
             const message = error.response?.data?.message || 'Google login failed';
             toast.error(message);
@@ -109,6 +128,7 @@ export const AuthProvider = ({ children }) => {
         delete axios.defaults.headers.common['Authorization'];
         setUser(null);
         setIsAuthenticated(false);
+        setBanSummary(null);
         toast.success('Logged out successfully');
     };
 
@@ -131,12 +151,14 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated,
         loading,
+        banSummary,
         login,
         register,
         googleLogin,
         logout,
         updateUser,
         refreshAuth,
+        refreshBanSummary: fetchBanSummary,
     };
 
     return (

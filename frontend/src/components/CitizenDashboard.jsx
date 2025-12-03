@@ -40,7 +40,7 @@ import {
 import './CitizenDashboard.css';
 
 const CitizenDashboard = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, banSummary } = useAuth();
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [darkMode, setDarkMode] = useState(() => {
@@ -151,6 +151,13 @@ const CitizenDashboard = () => {
         }
     ];
 
+    const formatDateTime = (value) => {
+        if (!value) return 'N/A';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'N/A';
+        return date.toLocaleString();
+    };
+
     const renderContent = () => {
         switch (activeTab) {
             case 'overview':
@@ -190,6 +197,53 @@ const CitizenDashboard = () => {
                                 </motion.div>
                             ))}
                         </div>
+
+                        {banSummary !== null && (
+                            <div className="ban-status-card">
+                                <div className="ban-status-header">
+                                    <h2>Ban Status</h2>
+                                </div>
+                                <div className="ban-status-meta">
+                                    <div className="ban-stat">
+                                        <span className="ban-label">Total bans</span>
+                                        <span className="ban-value">{banSummary?.banCount ?? 0}</span>
+                                    </div>
+                                    <div className="ban-stat">
+                                        <span className="ban-label">Active ban</span>
+                                        <span className="ban-value">{banSummary?.activeBan ? (banSummary.activeBan.banned_until ? formatDateTime(banSummary.activeBan.banned_until) : 'Indefinite') : 'None'}</span>
+                                    </div>
+                                    <div className="ban-stat">
+                                        <span className="ban-label">Status</span>
+                                        <span className={`ban-chip ${banSummary?.isBlacklisted ? 'danger' : 'ok'}`}>
+                                            {banSummary?.isBlacklisted ? 'Blacklisted' : 'In good standing'}
+                                        </span>
+                                    </div>
+                                </div>
+                                {banSummary?.isBlacklisted && banSummary?.blacklist && (
+                                    <div className="ban-blacklist-alert">
+                                        <p>Your account is permanently blacklisted.</p>
+                                        {banSummary.blacklist.reason && <p><strong>Reason:</strong> {banSummary.blacklist.reason}</p>}
+                                        <p><strong>Since:</strong> {formatDateTime(banSummary.blacklist.blacklisted_at)}</p>
+                                    </div>
+                                )}
+                                <div className="ban-history">
+                                    <h3>Ban History</h3>
+                                    {banSummary?.history && banSummary.history.length > 0 ? (
+                                        <ul>
+                                            {banSummary.history.slice(0, 5).map((entry) => (
+                                                <li key={entry.id}>
+                                                    <div><strong>From:</strong> {formatDateTime(entry.banned_from)}</div>
+                                                    <div><strong>Until:</strong> {entry.banned_until ? formatDateTime(entry.banned_until) : 'Indefinite'}</div>
+                                                    {entry.reason && <div><strong>Reason:</strong> {entry.reason}</div>}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="ban-empty">No bans recorded.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="content-grid">
                             <div className="recent-reports">

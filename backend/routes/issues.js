@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const { createBan, durationUnitToMinutes, getUserBanStatus } = require('../services/ban-service');
 const DEPARTMENT_ROLES = ['police', 'health', 'fire', 'water', 'electricity'];
 
 // lightweight auth
@@ -339,6 +340,192 @@ router.post('/:id/verify', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Verify issue error:', err);
     res.status(500).json({ message: 'Failed to verify issue' });
+  }
+});
+
+router.get('/:id/report-user/ban-summary', authenticateToken, async (req, res) => {
+  try {
+    if (!['govt_authority', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const issueId = Number(req.params.id);
+    if (!issueId || Number.isNaN(issueId)) {
+      return res.status(400).json({ message: 'Invalid issue id' });
+    }
+
+    const [[issueRow]] = await req.db.execute(
+      `SELECT id, phone_number FROM issues WHERE id = ? LIMIT 1`,
+      [issueId]
+    );
+
+    if (!issueRow) {
+      return res.status(404).json({ message: 'Issue not found' });
+    }
+
+    const phoneNumber = issueRow.phone_number ? String(issueRow.phone_number).trim() : '';
+    if (!phoneNumber) {
+      return res.status(404).json({ message: 'No reporter phone number found for this issue' });
+    }
+
+    const [[userRow]] = await req.db.execute(
+      `SELECT id, firstName, lastName, email, phone_number
+       FROM users
+       WHERE phone_number = ?
+       LIMIT 1`,
+      [phoneNumber]
+    );
+
+    if (!userRow) {
+      return res.status(404).json({ message: 'No registered user found for this phone number' });
+    }
+
+    const banStatus = await getUserBanStatus(req.db, userRow.id, { includeHistory: true });
+
+    return res.json({
+      user: {
+        id: userRow.id,
+        firstName: userRow.firstName,
+        lastName: userRow.lastName,
+        email: userRow.email,
+        phone_number: userRow.phone_number,
+      },
+      banSummary: banStatus,
+    });
+  } catch (err) {
+    console.error('Issue reporter ban summary error:', err);
+    res.status(500).json({ message: 'Failed to fetch reporter ban summary' });
+  }
+});
+
+router.post('/:id/ban', authenticateToken, async (req, res) => {
+  try {
+    if (!['govt_authority', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const issueId = Number(req.params.id);
+    if (!issueId || Number.isNaN(issueId)) {
+      return res.status(400).json({ message: 'Invalid issue id' });
+    }
+
+    const { durationValue, durationUnit, reason } = req.body || {};
+
+    const [[issueRow]] = await req.db.execute(
+      `SELECT id, phone_number FROM issues WHERE id = ? LIMIT 1`,
+      [issueId]
+    );
+
+    if (!issueRow) {
+      return res.status(404).json({ message: 'Issue not found' });
+    }
+
+    const phoneNumber = issueRow.phone_number ? String(issueRow.phone_number).trim() : '';
+    if (!phoneNumber) {
+      return res.status(400).json({ message: 'Issue does not have an associated phone number' });
+    }
+
+    const [[userRow]] = await req.db.execute(
+      `SELECT id, phone_number, firstName, lastName FROM users WHERE phone_number = ? LIMIT 1`,
+      [phoneNumber]
+    );
+
+    if (!userRow) {
+      return res.status(404).json({ message: 'No registered user found for this phone number' });
+    }
+
+    const currentStatus = await getUserBanStatus(req.db, userRow.id, { includeHistory: true });
+    if (currentStatus.isBlacklisted) {
+      return res.status(200).json({
+        message: 'User is already permanently blacklisted',
+        banSummary: currentStatus,
+      });
+    }
+
+    let durationNumeric = Number(durationValue);
+    if (!Number.isFinite(durationNumeric) || durationNumeric < 0) {
+      durationNumeric = 0;
+    }
+    const perUnit = durationUnitToMinutes(durationUnit);
+    const durationMinutes = durationNumeric > 0 ? durationNumeric * perUnit : 0;
+    const unitLabel = durationUnit ? String(durationUnit).toLowerCase() : 'hours';
+
+    const cleanReason = typeof reason === 'string' && reason.trim() ? reason.trim() : null;
+
+    const { banStatus, wasBlacklisted } = await createBan(req.db, {
+      userId: userRow.id,
+      phoneNumber: userRow.phone_number,
+      issueId,
+      reason: cleanReason,
+      durationMinutes,
+      bannedBy: req.user.id,
+    });
+
+    return res.json({
+      message: wasBlacklisted
+        ? 'User banned and permanently blacklisted due to repeated violations'
+        : durationMinutes > 0
+          ? `User banned for ${durationNumeric} ${unitLabel}`
+          : 'User banned',
+      banSummary: banStatus,
+    });
+  } catch (err) {
+    console.error('Issue ban error:', err);
+    res.status(500).json({ message: 'Failed to apply ban' });
+  }
+});
+
+router.get('/:id/report-user/ban-summary', authenticateToken, async (req, res) => {
+  try {
+    if (!['govt_authority', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const issueId = Number(req.params.id);
+    if (!issueId || Number.isNaN(issueId)) {
+      return res.status(400).json({ message: 'Invalid issue id' });
+    }
+
+    const [[issueRow]] = await req.db.execute(
+      `SELECT id, phone_number FROM issues WHERE id = ? LIMIT 1`,
+      [issueId]
+    );
+
+    if (!issueRow) {
+      return res.status(404).json({ message: 'Issue not found' });
+    }
+
+    const phoneNumber = issueRow.phone_number ? String(issueRow.phone_number).trim() : '';
+    if (!phoneNumber) {
+      return res.status(404).json({ message: 'No reporter phone number associated with this issue' });
+    }
+
+    const [[userRow]] = await req.db.execute(
+      `SELECT id, firstName, lastName, phone_number, email FROM users
+       WHERE phone_number = ?
+       LIMIT 1`,
+      [phoneNumber]
+    );
+
+    if (!userRow) {
+      return res.status(404).json({ message: 'Reporter not registered' });
+    }
+
+    const banStatus = await getUserBanStatus(req.db, userRow.id, { includeHistory: true });
+
+    return res.json({
+      user: {
+        id: userRow.id,
+        firstName: userRow.firstName,
+        lastName: userRow.lastName,
+        email: userRow.email,
+        phone_number: userRow.phone_number,
+      },
+      banSummary: banStatus,
+    });
+  } catch (err) {
+    console.error('Reporter ban summary error:', err);
+    res.status(500).json({ message: 'Failed to fetch reporter ban summary' });
   }
 });
 

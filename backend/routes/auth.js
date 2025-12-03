@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const { body, validationResult } = require('express-validator');
+const { getUserBanStatus } = require('../services/ban-service');
 const router = express.Router();
 
 /* Profile image upload setup */
@@ -265,6 +266,32 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
+        const banStatus = await getUserBanStatus(req.db, user.id, { includeHistory: false });
+        if (banStatus.isBlacklisted) {
+            return res.status(403).json({
+                message: 'Your account has been permanently banned',
+                ban: {
+                    type: 'blacklisted',
+                    reason: banStatus.blacklist?.reason || 'Exceeded ban limit',
+                    since: banStatus.blacklist?.blacklisted_at || null,
+                }
+            });
+        }
+
+        if (banStatus.activeBan) {
+            const until = banStatus.activeBan.banned_until;
+            return res.status(403).json({
+                message: until
+                    ? `Your account is temporarily banned until ${until}`
+                    : 'Your account is currently suspended',
+                ban: {
+                    type: 'temporary',
+                    until,
+                    reason: banStatus.activeBan.reason || null,
+                }
+            });
+        }
+
         // Get department and region for government authorities
         let department = null;
         let region = null;
@@ -361,6 +388,32 @@ router.post('/google', async (req, res) => {
             user = created;
         }
 
+        const banStatus = await getUserBanStatus(req.db, user.id, { includeHistory: false });
+        if (banStatus.isBlacklisted) {
+            return res.status(403).json({
+                message: 'Your account has been permanently banned',
+                ban: {
+                    type: 'blacklisted',
+                    reason: banStatus.blacklist?.reason || 'Exceeded ban limit',
+                    since: banStatus.blacklist?.blacklisted_at || null,
+                }
+            });
+        }
+
+        if (banStatus.activeBan) {
+            const until = banStatus.activeBan.banned_until;
+            return res.status(403).json({
+                message: until
+                    ? `Your account is temporarily banned until ${until}`
+                    : 'Your account is currently suspended',
+                ban: {
+                    type: 'temporary',
+                    until,
+                    reason: banStatus.activeBan.reason || null,
+                }
+            });
+        }
+
         // Get department for govt_authority users (admins don't have departments)
         let department = null;
         if (user.role === 'govt_authority') {
@@ -446,6 +499,71 @@ router.get('/me', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Get user error:', error);
         return res.status(500).json({ message: 'Failed to get user data' });
+    }
+});
+
+router.get('/me/ban-summary', authenticateToken, async (req, res) => {
+    try {
+        const banStatus = await getUserBanStatus(req.db, req.user.id, { includeHistory: true });
+        return res.json({
+            banSummary: {
+                banCount: banStatus.banCount,
+                isBlacklisted: banStatus.isBlacklisted,
+                activeBan: banStatus.activeBan,
+                blacklist: banStatus.blacklist,
+                history: banStatus.history,
+            }
+        });
+    } catch (error) {
+        console.error('Get ban summary error:', error);
+        return res.status(500).json({ message: 'Failed to fetch ban summary' });
+    }
+});
+
+router.get('/users/:userId/ban-summary', authenticateToken, async (req, res) => {
+    try {
+        if (!['govt_authority', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const userId = Number(req.params.userId);
+        if (!userId || Number.isNaN(userId)) {
+            return res.status(400).json({ message: 'Invalid user id' });
+        }
+
+        const [[userRow]] = await req.db.execute(
+            `SELECT id, firstName, lastName, phone_number, email
+             FROM users
+             WHERE id = ?
+             LIMIT 1`,
+            [userId]
+        );
+
+        if (!userRow) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const banStatus = await getUserBanStatus(req.db, userId, { includeHistory: true });
+
+        return res.json({
+            user: {
+                id: userRow.id,
+                firstName: userRow.firstName,
+                lastName: userRow.lastName,
+                email: userRow.email,
+                phone_number: userRow.phone_number,
+            },
+            banSummary: {
+                banCount: banStatus.banCount,
+                isBlacklisted: banStatus.isBlacklisted,
+                activeBan: banStatus.activeBan,
+                blacklist: banStatus.blacklist,
+                history: banStatus.history,
+            }
+        });
+    } catch (error) {
+        console.error('Get user ban summary error:', error);
+        return res.status(500).json({ message: 'Failed to fetch user ban summary' });
     }
 });
 

@@ -77,7 +77,7 @@
 
 .panels {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 16px;
 }
 
@@ -121,6 +121,130 @@
     border-radius: 8px;
     border: 1px solid #ddd;
     margin-top: 10px;
+}
+
+.reporterInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+}
+
+.blacklistedBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #ffebee;
+    border: 1px solid #b71c1c;
+    color: #b71c1c;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.banForm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.banLabel {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.banDurationRow {
+    display: flex;
+    gap: 8px;
+}
+
+.banDurationRow input,
+.banDurationRow select,
+.banForm textarea {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #000;
+    border-radius: 8px;
+    background: #fdfdfd;
+    font-family: inherit;
+}
+
+.banForm textarea {
+    resize: vertical;
+}
+
+.btnBan {
+    align-self: flex-start;
+    padding: 10px 16px;
+    border: 2px solid #000;
+    border-radius: 10px;
+    background: #fff7e6;
+    font-weight: 700;
+    box-shadow: 4px 4px 0 #000;
+    cursor: pointer;
+}
+
+.btnBan:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.banFeedback {
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.banFeedbackSuccess {
+    color: #1b5e20;
+}
+
+.banFeedbackWarning {
+    color: #b76b00;
+}
+
+.banFeedbackError {
+    color: #b71c1c;
+}
+
+.banHistory {
+    border-top: 1px solid #ddd;
+    padding-top: 12px;
+}
+
+.panelSubtitle {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-left: 0;
+    list-style: none;
+}
+
+.historyItem {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    background: #fafafa;
+    font-size: 0.85rem;
+}
+
+.mutedText {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.helperText {
+    font-size: 0.75rem;
+    color: #555;
 }
 
 .relatedSection {

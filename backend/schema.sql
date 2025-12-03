@@ -129,6 +129,41 @@ async function setupDatabase() {
     `);
     console.log('✅ Events table (with duration) created');
 
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS user_bans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        phone_number VARCHAR(20),
+        issue_id INT NULL,
+        reason VARCHAR(255) NULL,
+        banned_by INT NULL,
+        banned_from TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        banned_until TIMESTAMP NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (banned_by) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE SET NULL
+      )
+    `);
+    console.log('✅ User bans table created');
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS blacklisted_users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        phone_number VARCHAR(20),
+        reason VARCHAR(255) NULL,
+        blacklisted_by INT NULL,
+        blacklisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (blacklisted_by) REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE KEY uq_blacklisted_user (user_id)
+      )
+    `);
+    console.log('✅ Blacklisted users table created');
+
     // Insert fixed admin user (password: admin123)
     const adminPassword = '$2b$12$/q8ieN3O2vmWEY/Uwh0uX.tD6sZHGSrOzhGtbNdRtAUnYNiAoPEZe';
     await connection.execute(`

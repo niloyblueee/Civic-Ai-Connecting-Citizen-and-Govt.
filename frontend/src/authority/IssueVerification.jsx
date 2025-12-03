@@ -16,6 +16,14 @@ export default function IssueVerification() {
     const [collectionHeadId, setCollectionHeadId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [reportingUser, setReportingUser] = useState(null);
+    const [banSummary, setBanSummary] = useState(null);
+    const [banDurationValue, setBanDurationValue] = useState('');
+    const [banDurationUnit, setBanDurationUnit] = useState('hours');
+    const [banReason, setBanReason] = useState('');
+    const [banRequesting, setBanRequesting] = useState(false);
+    const [banFeedback, setBanFeedback] = useState('');
+    const [banFeedbackType, setBanFeedbackType] = useState('');
 
     useEffect(() => {
         const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -30,6 +38,21 @@ export default function IssueVerification() {
                 setRelatedIssues(Array.isArray(issueData.related_issues) ? issueData.related_issues : []);
                 setCollectionHeadId(issueData.collection_head_id || issueData.id);
                 setDepartments(meta.departments || []);
+
+                try {
+                    const { data } = await axios.get(`${base}/api/issues/${id}/report-user/ban-summary`);
+                    setReportingUser(data.user);
+                    setBanSummary(data.banSummary);
+                } catch (banErr) {
+                    if (banErr.response?.status === 404) {
+                        setReportingUser(null);
+                        setBanSummary(null);
+                    } else if (banErr.response?.status === 403) {
+                        console.warn('Ban summary access denied');
+                    } else {
+                        console.warn('Failed to fetch ban summary', banErr);
+                    }
+                }
             } catch (e) {
                 setError(e.response?.data?.message || 'Failed to load issue');
             } finally {
@@ -38,6 +61,41 @@ export default function IssueVerification() {
         };
         run();
     }, [id]);
+
+    const formatDateTime = (value) => {
+        if (!value) return 'N/A';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'N/A';
+        return date.toLocaleString();
+    };
+
+    const handleBanSubmit = async (event) => {
+        event.preventDefault();
+        if (!issue) return;
+        const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        setBanRequesting(true);
+        setBanFeedback('');
+        setBanFeedbackType('');
+        try {
+            const { data } = await axios.post(`${base}/api/issues/${issue.id}/ban`, {
+                durationValue: banDurationValue,
+                durationUnit: banDurationUnit,
+                reason: banReason,
+            });
+            setBanSummary(data?.banSummary || null);
+            setBanFeedback(data?.message || 'Ban applied');
+            const isBlacklistedNow = data?.banSummary?.isBlacklisted;
+            setBanFeedbackType(isBlacklistedNow ? 'warning' : 'success');
+            setBanDurationValue('');
+            setBanReason('');
+        } catch (err) {
+            const message = err.response?.data?.message || 'Failed to apply ban';
+            setBanFeedback(message);
+            setBanFeedbackType('error');
+        } finally {
+            setBanRequesting(false);
+        }
+    };
 
     const verify = async (action, idsOverride = null) => {
         try {
@@ -85,6 +143,12 @@ export default function IssueVerification() {
     if (loading) return <div className={styles.container}><div>Loading...</div></div>;
     if (error) return <div className={styles.container}><div style={{ color: 'red' }}>{error}</div></div>;
     if (!issue) return <div className={styles.container}><div>Issue not found</div></div>;
+
+    const banFeedbackClass = banFeedbackType === 'error'
+        ? styles.banFeedbackError
+        : banFeedbackType === 'warning'
+            ? styles.banFeedbackWarning
+            : styles.banFeedbackSuccess;
 
     return (
         <div className={styles.container}>
@@ -173,6 +237,83 @@ export default function IssueVerification() {
                         )}
                         {issue.photo && <img className={styles.image} src={issue.photo} alt="evidence" />}
                     </div>
+                </div>
+
+                <div className={styles.panel}>
+                    <div className={styles.panelTitle}>Reporter & Ban Status</div>
+                    {!reportingUser ? (
+                        <div className={styles.mutedText}>No registered reporter linked to this phone number.</div>
+                    ) : (
+                        <>
+                            <div className={styles.reporterInfo}>
+                                <div><b>Name:</b> {reportingUser.firstName} {reportingUser.lastName}</div>
+                                <div><b>Phone:</b> {reportingUser.phone_number}</div>
+                                <div><b>Total bans:</b> {banSummary?.banCount ?? 0} (blacklist at 3)</div>
+                                <div><b>Active ban:</b> {banSummary?.activeBan ? (banSummary.activeBan.banned_until ? formatDateTime(banSummary.activeBan.banned_until) : 'Indefinite') : 'None'}</div>
+                            </div>
+                            {banSummary?.isBlacklisted && (
+                                <div className={styles.blacklistedBadge}>Permanently blacklisted</div>
+                            )}
+                            {banFeedback && (
+                                <div className={`${styles.banFeedback} ${banFeedbackType ? banFeedbackClass : ''}`}>{banFeedback}</div>
+                            )}
+                            <form className={styles.banForm} onSubmit={handleBanSubmit}>
+                                <label className={styles.banLabel}>Ban duration</label>
+                                <div className={styles.banDurationRow}>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Value"
+                                        value={banDurationValue}
+                                        onChange={(e) => setBanDurationValue(e.target.value)}
+                                        disabled={banRequesting || banSummary?.isBlacklisted}
+                                    />
+                                    <select
+                                        value={banDurationUnit}
+                                        onChange={(e) => setBanDurationUnit(e.target.value)}
+                                        disabled={banRequesting || banSummary?.isBlacklisted}
+                                    >
+                                        <option value="minutes">Minutes</option>
+                                        <option value="hours">Hours</option>
+                                        <option value="days">Days</option>
+                                    </select>
+                                </div>
+                                <div className={styles.helperText}>Leave value empty or 0 for an immediate ban. Three bans trigger a permanent blacklist.</div>
+                                <label className={styles.banLabel} htmlFor="ban-reason">Reason (optional)</label>
+                                <textarea
+                                    id="ban-reason"
+                                    rows="3"
+                                    placeholder="Provide context for this ban"
+                                    value={banReason}
+                                    onChange={(e) => setBanReason(e.target.value)}
+                                    disabled={banRequesting || banSummary?.isBlacklisted}
+                                />
+                                <button
+                                    type="submit"
+                                    className={styles.btnBan}
+                                    disabled={banRequesting || banSummary?.isBlacklisted}
+                                >
+                                    {banSummary?.isBlacklisted ? 'Blacklisted' : (banRequesting ? 'Applying...' : 'Apply Ban')}
+                                </button>
+                            </form>
+                            <div className={styles.banHistory}>
+                                <div className={styles.panelSubtitle}>Recent bans</div>
+                                {banSummary?.history && banSummary.history.length > 0 ? (
+                                    <ul className={styles.historyList}>
+                                        {banSummary.history.slice(0, 5).map((entry) => (
+                                            <li key={entry.id} className={styles.historyItem}>
+                                                <div><b>From:</b> {formatDateTime(entry.banned_from)}</div>
+                                                <div><b>Until:</b> {formatDateTime(entry.banned_until)}</div>
+                                                {entry.reason && <div><b>Reason:</b> {entry.reason}</div>}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <div className={styles.mutedText}>No previous bans recorded.</div>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
