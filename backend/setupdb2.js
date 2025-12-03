@@ -5,18 +5,14 @@ async function setupDatabase() {
     console.log('🗄️  Setting up database...');
     let connection;
     try {
-        connection = await mysql.createConnection({
-            // If you use DB_URL:
-            uri: process.env.DB_URL, // mysql2 supports "uri" option
-            // OR use individual vars:
-            host: process.env.DB_HOST,
-            port: process.env.DB_PORT,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME
-        });
+        // Enforce internal/private connection string via MYSQL_URL only
+        const uri = process.env.MYSQL_URL;
+        if (!uri) {
+            throw new Error('MYSQL_URL is required and no public fallback is allowed.');
+        }
+        connection = await mysql.createConnection({ uri });
 
-        console.log('✅ Connected to Railway public MySQL');
+        console.log('✅ Connected to MySQL');
         // Create government authorities table
 
         await connection.execute(`

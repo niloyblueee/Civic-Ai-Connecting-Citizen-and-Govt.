@@ -78,7 +78,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
 function buildDbConfigFromEnv() {
-    const urlStr = process.env.DB_URL;
+    // Enforce internal/private connection string only
+    const urlStr = process.env.MYSQL_URL;
     /** @type {import('mysql2').PoolOptions} */
     let cfg;
 
@@ -93,18 +94,10 @@ function buildDbConfigFromEnv() {
                 database: url.pathname ? url.pathname.replace(/^\//, '') : undefined,
             };
         } catch (e) {
-            console.warn('Invalid DB_URL, falling back to discrete env vars:', e.message);
+            throw new Error('Invalid MYSQL_URL: ' + e.message);
         }
-    }
-
-    if (!cfg) {
-        cfg = {
-            host: process.env.DB_HOST || 'localhost',
-            port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '',
-            database: process.env.DB_NAME || 'technovation_luminos',
-        };
+    } else {
+        throw new Error('MYSQL_URL is required and no public fallback is allowed.');
     }
 
     // Common pool options

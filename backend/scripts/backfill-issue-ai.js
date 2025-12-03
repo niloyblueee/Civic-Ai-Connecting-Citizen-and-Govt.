@@ -33,7 +33,8 @@ const argv = process.argv.slice(2).reduce((acc, arg) => {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const buildDbConfigFromEnv = () => {
-    const urlStr = process.env.DB_URL;
+    // Enforce internal/private connection string only
+    const urlStr = process.env.MYSQL_URL;
     let cfg;
 
     if (urlStr) {
@@ -47,18 +48,10 @@ const buildDbConfigFromEnv = () => {
                 database: url.pathname ? url.pathname.replace(/^\//, '') : undefined,
             };
         } catch (e) {
-            console.warn('[backfill] Invalid DB_URL, falling back to discrete env vars:', e.message);
+            throw new Error('[backfill] Invalid MYSQL_URL: ' + e.message);
         }
-    }
-
-    if (!cfg) {
-        cfg = {
-            host: process.env.DB_HOST || 'localhost',
-            port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '',
-            database: process.env.DB_NAME || 'technovation_luminos',
-        };
+    } else {
+        throw new Error('[backfill] MYSQL_URL is required and no public fallback is allowed.');
     }
 
     cfg.waitForConnections = true;
